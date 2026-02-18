@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>치킨먹자 - 오늘 어떤 치킨?</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .container {
+      text-align: center;
+      padding: 2rem;
+      max-width: 600px;
+      width: 100%;
+    }
+
+    h1 { font-size: 2.5rem; margin-bottom: 0.5rem; color: #f0a500; }
+    .subtitle { font-size: 1rem; color: #888; margin-bottom: 2.5rem; }
+
+    .result-area {
+      min-height: 260px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 2rem;
+    }
+
+    .brand-badge {
+      display: inline-block;
+      padding: 0.4rem 1rem;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      background: #3a2a1a;
+      color: #f0a500;
+      opacity: 0;
+      transform: translateY(-10px);
+      transition: all 0.3s ease;
+    }
+
+    .brand-badge.show { opacity: 1; transform: translateY(0); }
+
+    .menu-name {
+      font-size: 2rem;
+      font-weight: 700;
+      line-height: 1.4;
+      opacity: 0;
+      transform: scale(0.8);
+      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      min-height: 3rem;
+      padding: 0 1rem;
+    }
+
+    .menu-name.show { opacity: 1; transform: scale(1); }
+
+    .pick-btn {
+      background: #f0a500;
+      color: #1a1a2e;
+      border: none;
+      padding: 1rem 3rem;
+      font-size: 1.3rem;
+      font-weight: 700;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .pick-btn:hover {
+      background: #d4940a;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(240, 165, 0, 0.3);
+    }
+
+    .pick-btn:active { transform: translateY(0); }
+    .pick-btn.rolling { animation: shake 0.1s infinite; }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-3px); }
+      75% { transform: translateX(3px); }
+    }
+
+    .counter { margin-top: 2rem; font-size: 0.8rem; color: #555; }
+
+    .rolling-text { animation: fadeInOut 0.08s infinite; }
+    @keyframes fadeInOut {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+
+    .brand-filter {
+      margin-bottom: 2rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      justify-content: center;
+    }
+
+    .brand-filter button {
+      background: #2a2a3e;
+      color: #888;
+      border: 1px solid #333;
+      padding: 0.3rem 0.7rem;
+      font-size: 0.75rem;
+      border-radius: 15px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .brand-filter button:hover { border-color: #f0a500; color: #f0a500; }
+    .brand-filter button.active { background: #3a2a1a; color: #f0a500; border-color: #f0a500; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>치킨먹자</h1>
+    <p class="subtitle">오늘은 어떤 치킨? 브랜드부터 메뉴까지 골라드립니다</p>
+
+    <div class="brand-filter" id="brandFilter"></div>
+
+    <div class="result-area">
+      <span id="brandBadge" class="brand-badge"></span>
+      <div id="menuName" class="menu-name"></div>
+    </div>
+
+    <button class="pick-btn" id="pickBtn" onclick="pickChicken()">치킨 고르기!</button>
+
+    <div class="counter" id="counter"></div>
+  </div>
+
+  <script>
+    const chickens = [
+      // === BBQ ===
+      { brand: "BBQ", menu: "황금올리브치킨" },
+      { brand: "BBQ", menu: "황금올리브순살" },
+      { brand: "BBQ", menu: "핫빠!크리스피" },
+      { brand: "BBQ", menu: "핫싸!블랙페퍼" },
+      { brand: "BBQ", menu: "핫착!레드착착" },
+      { brand: "BBQ", menu: "핫찐!찐킹소스" },
+      { brand: "BBQ", menu: "까먹물치킨" },
+      { brand: "BBQ", menu: "눈맞은닭(윙&봉)" },
+      { brand: "BBQ", menu: "파더s치킨(와사비)" },
+      { brand: "BBQ", menu: "파더s치킨(로스트 갈릭)" },
+      { brand: "BBQ", menu: "바삭칸치킨" },
+      { brand: "BBQ", menu: "빠리치킨" },
+      { brand: "BBQ", menu: "순살크래커" },
+      { brand: "BBQ", menu: "황금속살텐더" },
+      { brand: "BBQ", menu: "황올한깐풍치킨" },
+      { brand: "BBQ", menu: "체고치 순살" },
+      { brand: "BBQ", menu: "체고바 순살" },
+      { brand: "BBQ", menu: "극한왕갈비 치킨" },
+      { brand: "BBQ", menu: "올리브 닭강정" },
+      { brand: "BBQ", menu: "올리브핫윙" },
+      { brand: "BBQ", menu: "자메이카 통다리구이" },
+      { brand: "BBQ", menu: "자메이카 통다리 바비큐" },
+      { brand: "BBQ", menu: "스모크치킨" },
+      { brand: "BBQ", menu: "광희나는 메이플버터갈릭 치킨" },
+
+      // === 교촌치킨 ===
+      { brand: "교촌치킨", menu: "간장한마리" },
+      { brand: "교촌치킨", menu: "레드한마리" },
+      { brand: "교촌치킨", menu: "마라레드한마리" },
+      { brand: "교촌치킨", menu: "허니한마리" },
+      { brand: "교촌치킨", menu: "허니갈릭한마리" },
+      { brand: "교촌치킨", menu: "허니옥수수한마리" },
+      { brand: "교촌치킨", menu: "후라이드한마리" },
+      { brand: "교촌치킨", menu: "반반한마리" },
+      { brand: "교촌치킨", menu: "간장순살" },
+      { brand: "교촌치킨", menu: "레드순살" },
+      { brand: "교촌치킨", menu: "마라레드순살" },
+      { brand: "교촌치킨", menu: "허니순살" },
+      { brand: "교촌치킨", menu: "허니갈릭순살" },
+      { brand: "교촌치킨", menu: "허니옥수수순살" },
+      { brand: "교촌치킨", menu: "살살후라이드" },
+      { brand: "교촌치킨", menu: "파채소이살살" },
+      { brand: "교촌치킨", menu: "후라이드순살" },
+
+      // === BHC ===
+      { brand: "BHC", menu: "해바라기 후라이드" },
+      { brand: "BHC", menu: "핫후라이드" },
+      { brand: "BHC", menu: "양념치킨" },
+      { brand: "BHC", menu: "골드킹" },
+      { brand: "BHC", menu: "골드킹 핫" },
+      { brand: "BHC", menu: "콰삭킹" },
+      { brand: "BHC", menu: "뿌링클" },
+      { brand: "BHC", menu: "뿌링클 HOT" },
+      { brand: "BHC", menu: "맛초킹" },
+      { brand: "BHC", menu: "레드킹" },
+      { brand: "BHC", menu: "마법클" },
+      { brand: "BHC", menu: "콜팝치킨" },
+      { brand: "BHC", menu: "뿌링 콜팝" },
+      { brand: "BHC", menu: "바삭클" },
+
+      // === 굽네치킨 ===
+      { brand: "굽네치킨", menu: "굽네 오리지널" },
+      { brand: "굽네치킨", menu: "굽네 고추 바사삭" },
+      { brand: "굽네치킨", menu: "굽네 양념 히어로 치킨" },
+      { brand: "굽네치킨", menu: "굽네 볼케이노" },
+      { brand: "굽네치킨", menu: "굽네 갈비천왕" },
+      { brand: "굽네치킨", menu: "굽네 허니멜로" },
+      { brand: "굽네치킨", menu: "굽네 볼케이노 모짜렐라" },
+      { brand: "굽네치킨", menu: "굽네 갈릭마왕" },
+      { brand: "굽네치킨", menu: "굽네 맵단짠 칩킨" },
+      { brand: "굽네치킨", menu: "추추 치킨 스테이크" },
+
+      // === 네네치킨 ===
+      { brand: "네네치킨", menu: "후라이드" },
+      { brand: "네네치킨", menu: "양념치킨" },
+      { brand: "네네치킨", menu: "치즈스노윙" },
+      { brand: "네네치킨", menu: "매콤치즈스노윙" },
+      { brand: "네네치킨", menu: "어니언스노윙" },
+      { brand: "네네치킨", menu: "스노윙MAXX" },
+      { brand: "네네치킨", menu: "오리엔탈파닭" },
+      { brand: "네네치킨", menu: "레드마블치킨" },
+      { brand: "네네치킨", menu: "코찡마요치킨" },
+      { brand: "네네치킨", menu: "청양마요치킨" },
+      { brand: "네네치킨", menu: "크리미언치킨" },
+      { brand: "네네치킨", menu: "쇼킹핫치킨" },
+      { brand: "네네치킨", menu: "소이갈릭치킨" },
+      { brand: "네네치킨", menu: "소이크런치" },
+
+      // === 호식이두마리치킨 ===
+      { brand: "호식이두마리치킨", menu: "후라이드 치킨" },
+      { brand: "호식이두마리치킨", menu: "간장치킨" },
+      { brand: "호식이두마리치킨", menu: "양념 치킨" },
+      { brand: "호식이두마리치킨", menu: "땡초불꽃소스 치킨" },
+      { brand: "호식이두마리치킨", menu: "불짬뽕치킨" },
+      { brand: "호식이두마리치킨", menu: "스윗츠갈릭 치킨" },
+      { brand: "호식이두마리치킨", menu: "청양한고추마요 치킨" },
+      { brand: "호식이두마리치킨", menu: "타코마요 치킨" },
+      { brand: "호식이두마리치킨", menu: "레몬크림탕슈 치킨" },
+      { brand: "호식이두마리치킨", menu: "수라깐풍 치킨" },
+
+      // === 지코바 ===
+      { brand: "지코바", menu: "양념치킨" },
+      { brand: "지코바", menu: "소금구이치킨" },
+
+      // === 처갓집양념치킨 ===
+      { brand: "처갓집양념치킨", menu: "후라이드 치킨" },
+      { brand: "처갓집양념치킨", menu: "양념치킨" },
+      { brand: "처갓집양념치킨", menu: "슈프림 양념치킨" },
+      { brand: "처갓집양념치킨", menu: "치즈슈프림 양념치킨" },
+      { brand: "처갓집양념치킨", menu: "핫슈프림 양념치킨" },
+      { brand: "처갓집양념치킨", menu: "트러플 슈프림 양념치킨" },
+      { brand: "처갓집양념치킨", menu: "The.화이트치킨 슈프림" },
+      { brand: "처갓집양념치킨", menu: "The.화이트치킨 골드치즈" },
+      { brand: "처갓집양념치킨", menu: "청양산 고추치킨" },
+      { brand: "처갓집양념치킨", menu: "K-마라 양념치킨" },
+
+      // === 페리카나 ===
+      { brand: "페리카나", menu: "후라이드" },
+      { brand: "페리카나", menu: "양념치킨" },
+      { brand: "페리카나", menu: "매운 양념치킨" },
+      { brand: "페리카나", menu: "마늘치킨" },
+      { brand: "페리카나", menu: "파닭" },
+      { brand: "페리카나", menu: "간장치킨" },
+      { brand: "페리카나", menu: "핫칠리 치킨" },
+      { brand: "페리카나", menu: "조청치킨" },
+      { brand: "페리카나", menu: "바비큐치킨" },
+      { brand: "페리카나", menu: "뿌리오" },
+      { brand: "페리카나", menu: "핫데블 치킨" },
+      { brand: "페리카나", menu: "누꼬치킨" },
+
+      // === 또래오래 ===
+      { brand: "또래오래", menu: "오곡 후라이드 치킨" },
+      { brand: "또래오래", menu: "오곡 갈릭플러스 치킨" },
+      { brand: "또래오래", menu: "오곡 양념치킨" },
+      { brand: "또래오래", menu: "오곡 핫양념치킨" },
+      { brand: "또래오래", menu: "오곡 파닭" },
+      { brand: "또래오래", menu: "단짠치킨" },
+      { brand: "또래오래", menu: "고추단짠치킨" },
+      { brand: "또래오래", menu: "마왕치킨" },
+      { brand: "또래오래", menu: "엔젤치킨" },
+      { brand: "또래오래", menu: "콘듀치킨" },
+      { brand: "또래오래", menu: "리얼핫 양념치킨" },
+      { brand: "또래오래", menu: "핫뿌레이크" },
+
+      // === 60계치킨 ===
+      { brand: "60계치킨", menu: "후라이드치킨" },
+      { brand: "60계치킨", menu: "양념치킨" },
+      { brand: "60계치킨", menu: "간지치킨" },
+      { brand: "60계치킨", menu: "고추치킨" },
+      { brand: "60계치킨", menu: "더 매운 고추치킨" },
+      { brand: "60계치킨", menu: "크크크치킨" },
+      { brand: "60계치킨", menu: "하하핫치킨" },
+      { brand: "60계치킨", menu: "호랑이치킨" },
+      { brand: "60계치킨", menu: "크랑이치킨" },
+      { brand: "60계치킨", menu: "짜장계란치킨" },
+
+      // === 바른치킨 ===
+      { brand: "바른치킨", menu: "현미바삭" },
+      { brand: "바른치킨", menu: "핫현미바삭" },
+      { brand: "바른치킨", menu: "양념치킨" },
+      { brand: "바른치킨", menu: "통곡물간장치킨" },
+      { brand: "바른치킨", menu: "꿀마늘치킨" },
+      { brand: "바른치킨", menu: "레드치킨" },
+      { brand: "바른치킨", menu: "핫블랙치킨" },
+      { brand: "바른치킨", menu: "골드치킨" },
+      { brand: "바른치킨", menu: "달콤순살강정" },
+      { brand: "바른치킨", menu: "마라바삭" },
+      { brand: "바른치킨", menu: "바질바삭" },
+
+      // === 맘스터치 ===
+      { brand: "맘스터치", menu: "후라이드치킨" },
+      { brand: "맘스터치", menu: "맘스양념치킨" },
+      { brand: "맘스터치", menu: "간장마늘치킨" },
+      { brand: "맘스터치", menu: "치파오 싸이순살" },
+      { brand: "맘스터치", menu: "블랙쏘이치킨" },
+      { brand: "맘스터치", menu: "블랙쏘이 싸이순살" },
+      { brand: "맘스터치", menu: "치즈뿌치" },
+      { brand: "맘스터치", menu: "유린기 순살치킨" },
+      { brand: "맘스터치", menu: "후라이드텐더" },
+      { brand: "맘스터치", menu: "빅싸이순살" },
+
+      // === 푸라닭 ===
+      { brand: "푸라닭", menu: "씬 후라이드" },
+      { brand: "푸라닭", menu: "블랙알리오" },
+      { brand: "푸라닭", menu: "고추마요 치킨" },
+      { brand: "푸라닭", menu: "매드갈릭 치킨" },
+      { brand: "푸라닭", menu: "마불로 악마 치킨" },
+      { brand: "푸라닭", menu: "달콤양념 치킨" },
+      { brand: "푸라닭", menu: "파불로 치킨" },
+      { brand: "푸라닭", menu: "나폴리 투움바 치킨" },
+      { brand: "푸라닭", menu: "콘소메이징 치킨" },
+      { brand: "푸라닭", menu: "김미바삭 치킨" },
+      { brand: "푸라닭", menu: "치즈인이유 치킨" },
+      { brand: "푸라닭", menu: "일품깐풍 치킨" },
+
+      // === 노랑통닭 ===
+      { brand: "노랑통닭", menu: "엄청 큰 후라이드 치킨" },
+      { brand: "노랑통닭", menu: "엄청 큰 양념 치킨" },
+      { brand: "노랑통닭", menu: "엄청 큰 깐풍 치킨" },
+      { brand: "노랑통닭", menu: "엄청 큰 반반치킨" },
+      { brand: "노랑통닭", menu: "맵싸한 후라이드 치킨" },
+      { brand: "노랑통닭", menu: "맵싸한 양념 치킨" },
+      { brand: "노랑통닭", menu: "웰빙 파닭" },
+      { brand: "노랑통닭", menu: "알싸한 마늘 치킨" },
+      { brand: "노랑통닭", menu: "칼칼한 청양 치킨" },
+      { brand: "노랑통닭", menu: "바삭 누룽지 치킨" },
+      { brand: "노랑통닭", menu: "뿌리노랑 치킨" },
+      { brand: "노랑통닭", menu: "갈릭인더딥" },
+
+      // === 치킨플러스 ===
+      { brand: "치킨플러스", menu: "순살치킨" },
+      { brand: "치킨플러스", menu: "핵매운치킨" },
+      { brand: "치킨플러스", menu: "킹부각치킨" },
+      { brand: "치킨플러스", menu: "두마리같은 한마리치킨" },
+      { brand: "치킨플러스", menu: "제로슈가 양념치킨" },
+      { brand: "치킨플러스", menu: "극장판치킨" },
+      { brand: "치킨플러스", menu: "톡톡치킨" },
+
+      // === 자담치킨 ===
+      { brand: "자담치킨", menu: "후라이드" },
+      { brand: "자담치킨", menu: "핫후라이드" },
+      { brand: "자담치킨", menu: "양념" },
+      { brand: "자담치킨", menu: "간장" },
+      { brand: "자담치킨", menu: "파닭" },
+      { brand: "자담치킨", menu: "맵슐랭" },
+      { brand: "자담치킨", menu: "크리미양파" },
+      { brand: "자담치킨", menu: "불패" },
+      { brand: "자담치킨", menu: "소보로" },
+      { brand: "자담치킨", menu: "왓더핫" },
+      { brand: "자담치킨", menu: "마튀니" },
+      { brand: "자담치킨", menu: "허니팝" },
+      { brand: "자담치킨", menu: "치즈핑" },
+
+      // === 기영이숯불두마리치킨 ===
+      { brand: "기영이숯불두마리치킨", menu: "빨간양념숯불치킨" },
+      { brand: "기영이숯불두마리치킨", menu: "까만양념숯불치킨" },
+      { brand: "기영이숯불두마리치킨", menu: "양념숯불치킨" },
+      { brand: "기영이숯불두마리치킨", menu: "통마늘소금숯불치킨" },
+      { brand: "기영이숯불두마리치킨", menu: "오리지널 숯불장각" },
+      { brand: "기영이숯불두마리치킨", menu: "직화바베큐 숯불장각" },
+
+      // === 컬투치킨 ===
+      { brand: "컬투치킨", menu: "머플러 치킨(마후라)" },
+      { brand: "컬투치킨", menu: "매후라 치킨" },
+      { brand: "컬투치킨", menu: "컬투치킨(시그니처)" },
+      { brand: "컬투치킨", menu: "간장마요치킨" },
+      { brand: "컬투치킨", menu: "순살 까르보나라 치킨" },
+      { brand: "컬투치킨", menu: "화끈화닭 치킨" },
+      { brand: "컬투치킨", menu: "순살 파닭" },
+      { brand: "컬투치킨", menu: "어니언 크림새우 치킨" },
+      { brand: "컬투치킨", menu: "코코넛 치킨" },
+      { brand: "컬투치킨", menu: "옛날 치킨" },
+
+      // === 멕시카나 ===
+      { brand: "멕시카나", menu: "와삭칸" },
+      { brand: "멕시카나", menu: "치필링" },
+      { brand: "멕시카나", menu: "치필링HOT" },
+      { brand: "멕시카나", menu: "1989 오리진 후라이드" },
+      { brand: "멕시카나", menu: "치토스치킨" },
+      { brand: "멕시카나", menu: "마늘간장치킨" },
+      { brand: "멕시카나", menu: "시그니처 양념치킨" },
+      { brand: "멕시카나", menu: "땡초치킨" },
+      { brand: "멕시카나", menu: "깐풍요리치킨" },
+      { brand: "멕시카나", menu: "강정치킨" },
+      { brand: "멕시카나", menu: "눈꽃치즈치킨" },
+      { brand: "멕시카나", menu: "파닭치킨" },
+      { brand: "멕시카나", menu: "허니벌꿀치킨" },
+    ];
+
+    // Brand list
+    const brands = [...new Set(chickens.map(c => c.brand))];
+    let selectedBrands = new Set(brands);
+    let isRolling = false;
+    let pickCount = 0;
+    let lastPickedIndex = -1;
+
+    // Build brand filter buttons
+    function buildFilter() {
+      const container = document.getElementById('brandFilter');
+      const allBtn = document.createElement('button');
+      allBtn.textContent = '전체';
+      allBtn.classList.add('active');
+      allBtn.onclick = () => {
+        selectedBrands = new Set(brands);
+        updateFilterUI();
+      };
+      container.appendChild(allBtn);
+
+      brands.forEach(brand => {
+        const btn = document.createElement('button');
+        btn.textContent = brand;
+        btn.classList.add('active');
+        btn.onclick = () => {
+          if (selectedBrands.size === brands.length) {
+            // If all selected, select only this one
+            selectedBrands = new Set([brand]);
+          } else if (selectedBrands.has(brand)) {
+            selectedBrands.delete(brand);
+            if (selectedBrands.size === 0) selectedBrands = new Set(brands);
+          } else {
+            selectedBrands.add(brand);
+          }
+          updateFilterUI();
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    function updateFilterUI() {
+      const buttons = document.querySelectorAll('.brand-filter button');
+      const allBtn = buttons[0];
+      if (selectedBrands.size === brands.length) {
+        allBtn.classList.add('active');
+      } else {
+        allBtn.classList.remove('active');
+      }
+      for (let i = 1; i < buttons.length; i++) {
+        if (selectedBrands.has(buttons[i].textContent)) {
+          buttons[i].classList.add('active');
+        } else {
+          buttons[i].classList.remove('active');
+        }
+      }
+      document.getElementById('counter').textContent = '';
+    }
+
+    function getFiltered() {
+      return chickens.filter(c => selectedBrands.has(c.brand));
+    }
+
+    function pickChicken() {
+      const filtered = getFiltered();
+      if (filtered.length === 0 || isRolling) return;
+      isRolling = true;
+
+      const btn = document.getElementById('pickBtn');
+      const menuName = document.getElementById('menuName');
+      const badge = document.getElementById('brandBadge');
+
+      btn.classList.add('rolling');
+      badge.classList.remove('show');
+
+      let rollCount = 0;
+      const totalRolls = 20;
+      const rollInterval = setInterval(() => {
+        const random = filtered[Math.floor(Math.random() * filtered.length)];
+        menuName.textContent = random.menu;
+        menuName.classList.add('show');
+        menuName.classList.add('rolling-text');
+        rollCount++;
+
+        if (rollCount >= totalRolls) {
+          clearInterval(rollInterval);
+
+          let finalIndex;
+          do {
+            finalIndex = Math.floor(Math.random() * filtered.length);
+          } while (finalIndex === lastPickedIndex && filtered.length > 1);
+
+          lastPickedIndex = finalIndex;
+          const picked = filtered[finalIndex];
+
+          menuName.classList.remove('rolling-text');
+          menuName.textContent = picked.menu;
+          menuName.classList.add('show');
+
+          badge.textContent = picked.brand;
+          badge.classList.add('show');
+
+          btn.classList.remove('rolling');
+          btn.textContent = '다시 고르기!';
+          isRolling = false;
+
+          pickCount++;
+          document.getElementById('counter').textContent =
+            `${selectedBrands.size === brands.length ? '전체' : [...selectedBrands].join(', ')} ${filtered.length}개 메뉴 중 ${pickCount}번째 선택`;
+        }
+      }, 60);
+    }
+
+    buildFilter();
+  </script>
+</body>
+</html>
